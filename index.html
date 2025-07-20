@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persian Cartography</title>
+    <script src='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css' rel='stylesheet' />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&family=Cinzel:wght@400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans Arabic', 'Cinzel', serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #d4af37;
+            overflow: hidden;
+        }
+        
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.15) 0%, rgba(138, 43, 226, 0.15) 100%);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid #d4af37;
+            padding: 15px 30px;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .title {
+            font-family: 'Cinzel', serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: #d4af37;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .persian-pattern {
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #d4af37 30%, transparent 70%);
+            border-radius: 50%;
+            position: relative;
+        }
+        
+        .persian-pattern::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            width: 20px;
+            height: 20px;
+            background: #8a2be2;
+            border-radius: 3px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .control-btn {
+            background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+            border: none;
+            color: #1a1a2e;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+        }
+        
+        .map-container {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 3px solid #d4af37;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid #d4af37;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+        
+        .legend-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #d4af37;
+            margin-bottom: 15px;
+            text-align: center;
+            font-family: 'Cinzel', serif;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #d4af37;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid #d4af37;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 350px;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .floating-ornament {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.3) 0%, transparent 70%);
+            border: 2px solid rgba(212, 175, 55, 0.5);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+            z-index: 100;
+        }
+        
+        .floating-ornament:nth-child(1) { top: 10%; right: 10%; animation-delay: 0s; }
+        .floating-ornament:nth-child(2) { bottom: 15%; left: 8%; animation-delay: 2s; }
+        .floating-ornament:nth-child(3) { top: 30%; left: 15%; animation-delay: 4s; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        
+        .maplibregl-popup-content {
+            background: rgba(26, 26, 46, 0.95) !important;
+            color: #d4af37 !important;
+            border: 2px solid #d4af37 !important;
+            border-radius: 10px !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+        }
+        
+        .maplibregl-popup-tip {
+            border-top-color: #d4af37 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Floating ornaments -->
+        <div class="floating-ornament"></div>
+        <div class="floating-ornament"></div>
+        <div class="floating-ornament"></div>
+        
+        <div class="header">
+            <div class="title">
+                <div class="persian-pattern"></div>
+                Persian Cartography
+            </div>
+            <div class="controls">
+                <button class="control-btn" onclick="showPersianCities()">Persian Cities</button>
+                <button class="control-btn" onclick="showSilkRoad()">Silk Road</button>
+                <button class="control-btn" onclick="showPoetryPlaces()">Poetry Places</button>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-title">Map legend</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #d4af37;"></div>
+                <span>Historical Cities</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #8a2be2;"></div>
+                <span>Poetry Sites</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff6b6b;"></div>
+                <span>Silk Road</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4ecdc4;"></div>
+                <span>Cultural Sites</span>
+            </div>
+        </div>
+        
+        <div class="info-panel" id="infoPanel">
+            <h3 style="color: #d4af37; margin-bottom: 15px;">Cultural Information</h3>
+            <div id="infoContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let currentLayer = null;
+        
+        // Persian cultural data
+        const persianCities = [
+            { name: 'Isfahan', persian: 'اصفهان', coords: [51.6746, 32.6546], info: 'Half of the World - نصف جهان', type: 'historical' },
+            { name: 'Shiraz', persian: 'شیراز', coords: [52.5836, 29.6036], info: 'City of Poets and Roses - شهر شعر و گل', type: 'poetry' },
+            { name: 'Tehran', persian: 'تهران', coords: [51.4231, 35.6961], info: 'Modern Capital - پایتخت مدرن', type: 'modern' },
+            { name: 'Persepolis', persian: 'تخت جمشید', coords: [52.8914, 29.9355], info: 'Ancient Persian Capital - پایتخت باستانی پارس', type: 'ancient' },
+            { name: 'Yazd', persian: 'یزد', coords: [54.3675, 31.8974], info: 'City of Wind Catchers - شهر بادگیرها', type: 'historical' },
+            { name: 'Kerman', persian: 'کرمان', coords: [57.0834, 30.2839], info: 'Desert Rose - گل صحرا', type: 'historical' },
+            { name: 'Tabriz', persian: 'تبریز', coords: [46.2919, 38.0681], info: 'Carpet Capital - پایتخت فرش', type: 'cultural' },
+            { name: 'Mashhad', persian: 'مشهد', coords: [59.6077, 36.2972], info: 'Holy City - شهر مقدس', type: 'religious' }
+        ];
+        
+        const silkRoadPoints = [
+            { name: 'Ray', persian: 'ری', coords: [51.4375, 35.6011], info: 'Ancient Trade Hub' },
+            { name: 'Nishapur', persian: 'نیشابور', coords: [58.7956, 36.2135], info: 'Turquoise City' },
+            { name: 'Merv', persian: 'مرو', coords: [62.1906, 37.6697], info: 'Queen of the World' },
+            { name: 'Samarkand', persian: 'سمرقند', coords: [66.9597, 39.6270], info: 'Crossroads of Culture' }
+        ];
+        
+        const poetryPlaces = [
+            { name: 'Hafez Tomb', persian: 'آرامگاه حافظ', coords: [52.5836, 29.6036], poet: 'Hafez', info: 'Master of Ghazal' },
+            { name: 'Saadi Tomb', persian: 'آرامگاه سعدی', coords: [52.5500, 29.5800], poet: 'Saadi', info: 'The Nightingale of Shiraz' },
+            { name: 'Ferdowsi Tomb', persian: 'آرامگاه فردوسی', coords: [59.2152, 36.4739], poet: 'Ferdowsi', info: 'Author of Shahnameh' },
+            { name: 'Rumi Birthplace', persian: 'زادگاه رومی', coords: [66.9597, 38.8431], poet: 'Rumi', info: 'Mystic Poet' }
+        ];
+
+        function initializeMap() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: {
+                    version: 8,
+                    sources: {
+                        'osm': {
+                            type: 'raster',
+                            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                            tileSize: 256,
+                            attribution: 'OpenStreetMap contributors'
+                        }
+                    },
+                    layers: [{
+                        id: 'osm-layer',
+                        type: 'raster',
+                        source: 'osm'
+                    }],
+                    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf'
+                },
+                center: [53.6880, 32.4279], // Center on Iran
+                zoom: 5,
+                pitch: 45,
+                bearing: 0
+            });
+
+            // Add custom Persian styling
+            map.on('load', function() {
+                // Add Persian-themed terrain styling
+                map.setPaintProperty('osm-layer', 'raster-opacity', 0.7);
+                map.setPaintProperty('osm-layer', 'raster-hue-rotate', 30);
+                map.setPaintProperty('osm-layer', 'raster-contrast', 0.3);
+                map.setPaintProperty('osm-layer', 'raster-brightness-min', 0.1);
+                
+                showPersianCities();
+            });
+
+            // Add navigation controls with Persian styling
+            const nav = new maplibregl.NavigationControl();
+            map.addControl(nav, 'top-right');
+        }
+
+        function clearCurrentLayer() {
+            if (currentLayer) {
+                if (map.getSource(currentLayer)) {
+                    map.removeLayer(currentLayer);
+                    map.removeSource(currentLayer);
+                }
+            }
+        }
+
+        function showPersianCities() {
+            clearCurrentLayer();
+            currentLayer = 'persian-cities';
+            
+            map.addSource('persian-cities', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: persianCities.map(city => ({
+                        type: 'Feature',
+                        properties: {
+                            name: city.name,
+                            persian: city.persian,
+                            info: city.info,
+                            type: city.type
+                        },
+                        geometry: {
+                            type: 'Point',
+                            coordinates: city.coords
+                        }
+                    }))
+                }
+            });
+
+            map.addLayer({
+                id: 'persian-cities',
+                type: 'circle',
+                source: 'persian-cities',
+                paint: {
+                    'circle-radius': [
+                        'case',
+                        ['==', ['get', 'type'], 'ancient'], 12,
+                        ['==', ['get', 'type'], 'poetry'], 10,
+                        8
+                    ],
+                    'circle-color': [
+                        'case',
+                        ['==', ['get', 'type'], 'ancient'], '#ff6b6b',
+                        ['==', ['get', 'type'], 'poetry'], '#8a2be2',
+                        ['==', ['get', 'type'], 'religious'], '#4ecdc4',
+                        '#d4af37'
+                    ],
+                    'circle-stroke-width': 3,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.8
+                }
+            });
+
+            addPopups('persian-cities');
+        }
+
+        function showSilkRoad() {
+            clearCurrentLayer();
+            currentLayer = 'silk-road';
+            
+            map.addSource('silk-road', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        {
+                            type: 'Feature',
+                            properties: { type: 'route' },
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: silkRoadPoints.map(p => p.coords)
+                            }
+                        },
+                        ...silkRoadPoints.map(point => ({
+                            type: 'Feature',
+                            properties: {
+                                name: point.name,
+                                persian: point.persian,
+                                info: point.info,
+                                type: 'city'
+                            },
+                            geometry: {
+                                type: 'Point',
+                                coordinates: point.coords
+                            }
+                        }))
+                    ]
+                }
+            });
+
+            map.addLayer({
+                id: 'silk-road-line',
+                type: 'line',
+                source: 'silk-road',
+                filter: ['==', ['get', 'type'], 'route'],
+                paint: {
+                    'line-color': '#ff6b6b',
+                    'line-width': 4,
+                    'line-dasharray': [2, 2],
+                    'line-opacity': 0.8
+                }
+            });
+
+            map.addLayer({
+                id: 'silk-road',
+                type: 'circle',
+                source: 'silk-road',
+                filter: ['==', ['get', 'type'], 'city'],
+                paint: {
+                    'circle-radius': 10,
+                    'circle-color': '#ff6b6b',
+                    'circle-stroke-width': 3,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.9
+                }
+            });
+
+            addPopups('silk-road');
+        }
+
+        function showPoetryPlaces() {
+            clearCurrentLayer();
+            currentLayer = 'poetry-places';
+            
+            map.addSource('poetry-places', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: poetryPlaces.map(place => ({
+                        type: 'Feature',
+                        properties: {
+                            name: place.name,
+                            persian: place.persian,
+                            poet: place.poet,
+                            info: place.info
+                        },
+                        geometry: {
+                            type: 'Point',
+                            coordinates: place.coords
+                        }
+                    }))
+                }
+            });
+
+            map.addLayer({
+                id: 'poetry-places',
+                type: 'circle',
+                source: 'poetry-places',
+                paint: {
+                    'circle-radius': 15,
+                    'circle-color': '#8a2be2',
+                    'circle-stroke-width': 4,
+                    'circle-stroke-color': '#d4af37',
+                    'circle-opacity': 0.8
+                }
+            });
+
+            addPopups('poetry-places');
+        }
+
+        function addPopups(layerId) {
+            map.on('click', layerId, function(e) {
+                const properties = e.features[0].properties;
+                
+                let popupContent = `
+                    <div style="text-align: center; padding: 10px;">
+                        <h3 style="color: #d4af37; margin-bottom: 10px; font-family: 'Cinzel', serif;">
+                            ${properties.name}
+                        </h3>
+                        <p style="color: #ffffff; font-size: 16px; margin-bottom: 8px; font-family: 'Noto Sans Arabic', sans-serif;">
+                            ${properties.persian}
+                        </p>
+                        <p style="color: #cccccc; font-size: 14px; line-height: 1.4;">
+                            ${properties.info}
+                        </p>
+                `;
+                
+                if (properties.poet) {
+                    popupContent += `
+                        <p style="color: #8a2be2; font-size: 14px; font-weight: 600; margin-top: 8px;">
+                            Poet: ${properties.poet}
+                        </p>
+                    `;
+                }
+                
+                popupContent += `</div>`;
+
+                new maplibregl.Popup({ closeOnClick: true })
+                    .setLngLat(e.lngLat)
+                    .setHTML(popupContent)
+                    .addTo(map);
+            });
+
+            map.on('mouseenter', layerId, function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', layerId, function() {
+                map.getCanvas().style.cursor = '';
+            });
+        }
+
+        // Initialize the map when the page loads
+        window.addEventListener('load', initializeMap);
+    </script>
+</body>
+</html>
